@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -20,20 +21,38 @@ type Bot struct {
 	Apibaseurl  string
 }
 
+//Msgitem is the what webhook receive message
 type Msgitem struct {
-	Items []struct {
-		ID        string    `json:"id"`
-		Name      string    `json:"name"`
-		TargetURL string    `json:"targetUrl"`
-		Resource  string    `json:"resource"`
-		Event     string    `json:"event"`
-		OrgID     string    `json:"orgId"`
-		CreatedBy string    `json:"createdBy"`
-		AppID     string    `json:"appId"`
-		OwnedBy   string    `json:"ownedBy"`
-		Status    string    `json:"status"`
-		Created   time.Time `json:"created"`
-	} `json:"items"`
+	ID        string    `json:"id"`
+	Name      string    `json:"name"`
+	TargetURL string    `json:"targetUrl"`
+	Resource  string    `json:"resource"`
+	Event     string    `json:"event"`
+	OrgID     string    `json:"orgId"`
+	CreatedBy string    `json:"createdBy"`
+	AppID     string    `json:"appId"`
+	OwnedBy   string    `json:"ownedBy"`
+	Status    string    `json:"status"`
+	Created   time.Time `json:"created"`
+	ActorID   string    `json:"actorId"`
+	Data      struct {
+		ID          string    `json:"id"`
+		RoomID      string    `json:"roomId"`
+		RoomType    string    `json:"roomType"`
+		PersonID    string    `json:"personId"`
+		PersonEmail string    `json:"personEmail"`
+		Created     time.Time `json:"created"`
+	} `json:"data"`
+}
+
+type Msgcontent struct {
+	ID          string    `json:"id"`
+	RoomID      string    `json:"roomId"`
+	RoomType    string    `json:"roomType"`
+	Text        string    `json:"text"`
+	PersonID    string    `json:"personId"`
+	PersonEmail string    `json:"personEmail"`
+	Created     time.Time `json:"created"`
 }
 
 func initbot() *Bot {
@@ -81,21 +100,17 @@ func main() {
 	r.POST("/bot/webhook", func(c *gin.Context) {
 		var m Msgitem
 		if c.ShouldBind(&m) == nil {
-			fmt.Println(m.Items[0])
+			fmt.Println(m.Data.ID)
+			//Y2lzY29zcGFyazovL3VzL01FU1NBR0UvNzFkODViYzAtMzBmYi0xMWU5LWFiNmEtNzVjODMzNjViYTFm
+			msg := getmessage(b, m.Data.ID)
+
+			c.String(200, msg)
 		}
-		c.String(200, "get message")
 
 	})
 
-	r.GET("/bot/getmsg/msgid", func(c *gin.Context) {
-		//https://api.ciscospark.com/v1/messages/Y2lzY29zcGFyazovL3VzL01FU1NBR0UvYWM0YTFkZDAtMzBmNS0xMWU5LThiMDYtOWRhZjExZjViNWMy
-		_, body, _ := gorequest.New().Get(b.Apibaseurl+"messages/").Set("Authorization", "Bearer "+b.Accesstoken).End()
-		//_, body, _ := gorequest.New().Set("Authorization", "Bearer "+b.Accesstoken).Get("http://127.0.0.1:8080/printrequest").End()
-
-		fmt.Println(body)
-		c.String(200, body)
-
-	})
+	// r.GET("/bot/getmsg/msgid", func(c *gin.Context) {
+	// })
 
 	r.GET("/bot/listwebhook", func(c *gin.Context) {
 		//https://api.ciscospark.com/v1/webhooks
@@ -107,4 +122,23 @@ func main() {
 
 	})
 	r.Run() // listen and serve on 0.0.0.0:8080
+}
+
+func getmessage(b *Bot, msgid string) string {
+	//https://api.ciscospark.com/v1/messages/Y2lzY29zcGFyazovL3VzL01FU1NBR0UvYWM0YTFkZDAtMzBmNS0xMWU5LThiMDYtOWRhZjExZjViNWMy
+	fmt.Println("******************** in get message ")
+	fmt.Println("Authorization: Bearer " + b.Accesstoken)
+	fmt.Println(b.Apibaseurl + "messages/" + msgid)
+	var content Msgcontent
+	_, bodyBytes, err := gorequest.New().Set("Authorization", "Bearer "+b.Accesstoken).Get(b.Apibaseurl + "messages/" + msgid).EndBytes()
+	if err != nil {
+		fmt.Println("call to get msg content fail")
+	}
+	errs := json.Unmarshal(bodyBytes, &content)
+	if errs != nil {
+		fmt.Println("unmarshal msg text fail")
+	}
+	fmt.Println(content)
+	return content.Text
+
 }
