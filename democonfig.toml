@@ -1,0 +1,4 @@
+name="botname"
+idtoken="botid"
+accesstoken="bottoken"
+apibaseurl="https://api.ciscospark.com/v1/"
